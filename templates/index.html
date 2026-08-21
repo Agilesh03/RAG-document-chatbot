@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Document Intelligence</title>
+</head>
+
+<body>
+
+    <h1>AI Document Intelligence System</h1>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <input
+            type="file"
+            name="document"
+            accept=".pdf,.docx"
+            required
+        >
+
+        <button type="submit">
+            Upload & Extract
+        </button>
+
+    </form>
+
+    {% if error %}
+
+        <p style="color: red;">
+            {{ error }}
+        </p>
+
+    {% endif %}
+
+
+    {% if text %}
+
+        <h2>Extracted Text</h2>
+
+        <textarea
+            rows="25"
+            cols="100"
+            readonly
+        >{{ text }}</textarea>
+
+    {% endif %}
+
+    {% if chunks %}
+
+    <h2>Document Chunks</h2>
+
+    {% for chunk in chunks %}
+
+        <div style="
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        ">
+
+            <h3>Chunk {{ loop.index }}</h3>
+
+            <p>{{ chunk }}</p>
+
+        </div>
+
+    {% endfor %}
+
+{% endif %}
+
+</body>
+
+</html>
