@@ -4,12 +4,25 @@ import pickle
 import os
 
 
-VECTOR_STORE_DIR = "../vector_store"
+# Get the project root directory
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
+
+VECTOR_STORE_DIR = os.path.join(
+    BASE_DIR,
+    "vector_store"
+)
+
 
 INDEX_PATH = os.path.join(
     VECTOR_STORE_DIR,
     "index.faiss"
 )
+
 
 METADATA_PATH = os.path.join(
     VECTOR_STORE_DIR,
@@ -63,7 +76,9 @@ def save_vector_store(index, chunks):
             file
         )
 
-    print("Vector store saved successfully.")
+    print(
+        "Vector store saved successfully."
+    )
 
     print(
         "Index:",
@@ -74,3 +89,32 @@ def save_vector_store(index, chunks):
         "Metadata:",
         METADATA_PATH
     )
+
+
+def load_vector_store():
+    """
+    Load the saved FAISS index and document chunks.
+    """
+
+    if not os.path.exists(INDEX_PATH):
+        raise FileNotFoundError(
+            "FAISS index not found."
+        )
+
+    if not os.path.exists(METADATA_PATH):
+        raise FileNotFoundError(
+            "Metadata file not found."
+        )
+
+    index = faiss.read_index(
+        INDEX_PATH
+    )
+
+    with open(
+        METADATA_PATH,
+        "rb"
+    ) as file:
+
+        chunks = pickle.load(file)
+
+    return index, chunks

@@ -1,5 +1,5 @@
-from search import search
-from llm import generate_answer
+from services.search import search
+from services.llm import generate_answer
 
 
 def ask_question(question):

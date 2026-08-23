@@ -1,31 +1,7 @@
-import faiss
-import pickle
 import numpy as np
 
-from embedding import create_embeddings
-
-
-INDEX_PATH = "../vector_store/index.faiss"
-METADATA_PATH = "../vector_store/metadata.pkl"
-
-
-def load_vector_store():
-    """
-    Load the saved FAISS index and document chunks.
-    """
-
-    index = faiss.read_index(
-        INDEX_PATH
-    )
-
-    with open(
-        METADATA_PATH,
-        "rb"
-    ) as file:
-
-        chunks = pickle.load(file)
-
-    return index, chunks
+from services.embedding import create_embeddings
+from services.vector_store import load_vector_store
 
 
 def search(query, top_k=3):
@@ -36,6 +12,7 @@ def search(query, top_k=3):
 
     index, chunks = load_vector_store()
 
+    # Convert the user's question into an embedding
     query_embedding = create_embeddings(
         [query]
     )
@@ -45,6 +22,7 @@ def search(query, top_k=3):
         dtype="float32"
     )
 
+    # Search FAISS
     distances, indices = index.search(
         query_embedding,
         top_k

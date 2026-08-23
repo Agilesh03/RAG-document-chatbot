@@ -2,74 +2,368 @@
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>AI Document Intelligence</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
 </head>
+
 
 <body>
 
-    <h1>AI Document Intelligence System</h1>
+    <div class="app-container">
 
-    <form method="POST" enctype="multipart/form-data">
 
-        <input
-            type="file"
-            name="document"
-            accept=".pdf,.docx"
-            required
-        >
+        <!-- ============================= -->
+        <!-- Header -->
+        <!-- ============================= -->
 
-        <button type="submit">
-            Upload & Extract
-        </button>
+        <header class="header">
 
-    </form>
+            <div>
 
-    {% if error %}
+                <h1>
+                    AI Document Intelligence
+                </h1>
 
-        <p style="color: red;">
+                <p>
+                    Upload a document and ask questions using AI.
+                </p>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- ============================= -->
+        <!-- Upload Section -->
+        <!-- ============================= -->
+
+        <section class="card upload-card">
+
+            <div class="section-title">
+
+                <span class="icon">
+                    📄
+                </span>
+
+                <div>
+
+                    <h2>
+                        Upload Document
+                    </h2>
+
+                    <p>
+                        Supported formats: PDF and DOCX
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <form
+    method="POST"
+    action="/upload"
+    enctype="multipart/form-data"
+    class="upload-form"
+>
+
+                <label class="file-input">
+
+                    <input
+                        type="file"
+                        name="document"
+                        accept=".pdf,.docx"
+                        required
+                    >
+
+                    <span>
+                        Choose PDF or DOCX
+                    </span>
+
+                </label>
+
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                >
+
+                    Upload & Process
+
+                </button>
+
+            </form>
+
+        </section>
+
+
+
+        <!-- ============================= -->
+        <!-- Error -->
+        <!-- ============================= -->
+
+        {% if error %}
+
+        <div class="error-message">
+
+            <strong>
+                Error:
+            </strong>
+
             {{ error }}
-        </p>
-
-    {% endif %}
-
-
-    {% if text %}
-
-        <h2>Extracted Text</h2>
-
-        <textarea
-            rows="25"
-            cols="100"
-            readonly
-        >{{ text }}</textarea>
-
-    {% endif %}
-
-    {% if chunks %}
-
-    <h2>Document Chunks</h2>
-
-    {% for chunk in chunks %}
-
-        <div style="
-            border: 1px solid #ccc;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
-        ">
-
-            <h3>Chunk {{ loop.index }}</h3>
-
-            <p>{{ chunk }}</p>
 
         </div>
 
-    {% endfor %}
+        {% endif %}
 
-{% endif %}
+
+
+                {% if success %}
+
+        <div class="success-message">
+
+            <strong>
+                ✓ Success:
+            </strong>
+
+            {{ success }}
+
+            {% if filename %}
+                <span>
+                    — {{ filename }}
+                </span>
+            {% endif %}
+
+        </div>
+
+        {% endif %}
+
+
+
+        <!-- ============================= -->
+        <!-- Ask AI -->
+        <!-- ============================= -->
+
+        <section class="card question-card">
+
+            <div class="section-title">
+
+                <span class="icon">
+                    💬
+                </span>
+
+                <div>
+
+                    <h2>
+                        Ask Your Document
+                    </h2>
+
+                    <p>
+                        Ask a question about the uploaded document.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <form
+                method="POST"
+                action="/ask"
+                class="question-form"
+            >
+
+                <div class="question-input-wrapper">
+
+                    <input
+                        type="text"
+                        name="question"
+                        placeholder="Example: What was Dhoni's highest ODI score?"
+                        required
+                    >
+
+                    <button
+                        type="submit"
+                        class="ask-button"
+                    >
+
+                        Ask AI
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+
+        <!-- ============================= -->
+        <!-- AI Answer -->
+        <!-- ============================= -->
+
+        {% if answer %}
+
+        <section class="card answer-card">
+
+            <div class="section-title">
+
+                <span class="icon">
+                    🤖
+                </span>
+
+                <div>
+
+                    <h2>
+                        AI Answer
+                    </h2>
+
+                    <p>
+                        Generated from the retrieved document context.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="answer-content">
+
+                {{ answer }}
+
+            </div>
+
+        </section>
+
+        {% endif %}
+
+
+
+        <!-- ============================= -->
+        <!-- Extracted Text -->
+        <!-- ============================= -->
+
+        {% if text %}
+
+        <section class="card">
+
+            <div class="section-title">
+
+                <span class="icon">
+                    📑
+                </span>
+
+                <div>
+
+                    <h2>
+                        Extracted Text
+                    </h2>
+
+                    <p>
+                        Text extracted from your document.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <textarea
+                class="extracted-text"
+                readonly
+            >{{ text }}</textarea>
+
+        </section>
+
+        {% endif %}
+
+
+
+        <!-- ============================= -->
+        <!-- Document Chunks -->
+        <!-- ============================= -->
+
+        {% if chunks %}
+
+        <section class="card">
+
+            <div class="section-title">
+
+                <span class="icon">
+                    🧩
+                </span>
+
+                <div>
+
+                    <h2>
+                        Document Chunks
+                    </h2>
+
+                    <p>
+                        These chunks are used by the RAG retrieval system.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="chunks-container">
+
+                {% for chunk in chunks %}
+
+                <div class="chunk">
+
+                    <div class="chunk-header">
+
+                        <span>
+                            Chunk {{ loop.index }}
+                        </span>
+
+                    </div>
+
+
+                    <p>
+                        {{ chunk }}
+                    </p>
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+        </section>
+
+        {% endif %}
+
+
+
+        <!-- ============================= -->
+        <!-- Footer -->
+        <!-- ============================= -->
+
+        <footer>
+
+            <p>
+                AI Document Intelligence • RAG + FAISS + Llama 3.2
+            </p>
+
+        </footer>
+
+
+    </div>
 
 </body>
 
