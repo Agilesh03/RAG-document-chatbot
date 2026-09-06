@@ -1,115 +1,85 @@
-import fitz
+from pypdf import PdfReader
 from docx import Document
-from docx.document import Document as _Document
-from docx.table import Table
-from docx.text.paragraph import Paragraph
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
 
+
+# ============================================================
+# PDF
+# ============================================================
 
 def extract_pdf_text(file_path):
     """
-    Extract text from a PDF.
+    Extract text from a PDF document.
     """
 
-    text = ""
+    reader = PdfReader(
+        file_path
+    )
 
-    pdf = fitz.open(file_path)
+    pages = []
 
-    for page in pdf:
-        page_text = page.get_text()
+    for page in reader.pages:
 
-        if page_text:
-            text += page_text + "\n"
+        text = page.extract_text()
 
-    pdf.close()
+        if text:
 
-    return text
-
-
-def iter_block_items(parent):
-    """
-    Yield paragraphs and tables in their original
-    document order.
-    """
-
-    if isinstance(parent, _Document):
-        parent_element = parent.element.body
-    else:
-        parent_element = parent._tc
-
-    for child in parent_element.iterchildren():
-
-        if isinstance(child, CT_P):
-
-            yield Paragraph(
-                child,
-                parent
+            pages.append(
+                text
             )
 
-        elif isinstance(child, CT_Tbl):
+    return "\n".join(
+        pages
+    )
 
-            yield Table(
-                child,
-                parent
-            )
 
+# ============================================================
+# DOCX
+# ============================================================
 
 def extract_docx_text(file_path):
     """
-    Extract both paragraphs and tables from DOCX.
+    Extract text from a DOCX document.
     """
 
-    document = Document(file_path)
+    document = Document(
+        file_path
+    )
 
-    text_parts = []
+    paragraphs = []
 
-    for block in iter_block_items(document):
+    for paragraph in document.paragraphs:
 
-        # Normal paragraph
-        if isinstance(block, Paragraph):
+        text = paragraph.text.strip()
 
-            paragraph_text = block.text.strip()
+        if text:
 
-            if paragraph_text:
-                text_parts.append(
-                    paragraph_text
-                )
+            paragraphs.append(
+                text
+            )
 
-        # Table
-        elif isinstance(block, Table):
-
-            for row in block.rows:
-
-                row_values = []
-
-                for cell in row.cells:
-
-                    cell_text = cell.text.strip()
-
-                    if cell_text:
-                        row_values.append(
-                            cell_text
-                        )
-
-                if row_values:
-
-                    text_parts.append(
-                        " | ".join(row_values)
-                    )
-
-    return "\n".join(text_parts)
+    return "\n".join(
+        paragraphs
+    )
 
 
-def extract_text(file_path, file_extension):
+# ============================================================
+# GENERAL EXTRACTOR
+# ============================================================
 
-    if file_extension == ".pdf":
+def extract_text(file_path, extension):
+    """
+    Extract text based on file extension.
+    """
+
+    extension = extension.lower()
+
+    if extension == ".pdf":
 
         return extract_pdf_text(
             file_path
         )
 
-    elif file_extension == ".docx":
+    elif extension == ".docx":
 
         return extract_docx_text(
             file_path
@@ -118,5 +88,5 @@ def extract_text(file_path, file_extension):
     else:
 
         raise ValueError(
-            "Unsupported file type"
+            "Unsupported document format."
         )

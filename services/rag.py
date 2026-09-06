@@ -4,8 +4,8 @@ from services.llm import generate_answer
 
 def ask_question(question):
     """
-    Retrieve relevant chunks and generate
-    an answer using the LLM.
+    Retrieve relevant document chunks
+    and generate an answer using Llama.
     """
 
     results = search(
@@ -13,7 +13,17 @@ def ask_question(question):
         top_k=3
     )
 
+
+    if not results:
+
+        return (
+            "I could not find any processed "
+            "documents to answer this question."
+        )
+
+
     context_parts = []
+
 
     for result in results:
 
@@ -21,30 +31,16 @@ def ask_question(question):
             result["chunk"]
         )
 
+
     context = "\n\n".join(
         context_parts
     )
+
 
     answer = generate_answer(
         question,
         context
     )
 
+
     return answer
-
-
-if __name__ == "__main__":
-
-    question = input(
-        "\nAsk a question about the document: "
-    )
-
-    answer = ask_question(
-        question
-    )
-
-    print(
-        "\n========== ANSWER ==========\n"
-    )
-
-    print(answer)

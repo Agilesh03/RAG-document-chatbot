@@ -1,40 +1,46 @@
-from flask import Flask, render_template, request, jsonify
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify
+)
+
 from werkzeug.utils import secure_filename
 
-from services.document_loader import extract_text
-from services.chunker import create_chunks
-from services.embedding import create_embeddings
-from services.vector_store import (
-    create_vector_index,
-    save_vector_store
-)
 from services.rag import ask_question
+from services.embed_document import rebuild_vector_store
 
 import os
 
 
-app = Flask(__name__)
+# ============================================================
+# APP
+# ============================================================
+
+app = Flask(
+    __name__
+)
 
 
-# =========================================================
-# Configuration
-# =========================================================
+# ============================================================
+# PATHS
+# ============================================================
 
 BASE_DIR = os.path.dirname(
     os.path.abspath(__file__)
 )
+
 
 UPLOAD_FOLDER = os.path.join(
     BASE_DIR,
     "documents"
 )
 
-VECTOR_STORE_FOLDER = os.path.join(
-    BASE_DIR,
-    "vector_store"
-)
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config[
+    "UPLOAD_FOLDER"
+] = UPLOAD_FOLDER
+
 
 ALLOWED_EXTENSIONS = {
     ".pdf",
@@ -42,33 +48,52 @@ ALLOWED_EXTENSIONS = {
 }
 
 
-# Make sure required folders exist
-os.makedirs(
-    UPLOAD_FOLDER,
-    exist_ok=True
+# ============================================================
+# HOME
+# ============================================================
+
+@app.route(
+    "/",
+    methods=["GET"]
 )
-
-os.makedirs(
-    VECTOR_STORE_FOLDER,
-    exist_ok=True
-)
-
-
-# =========================================================
-# Home Page
-# =========================================================
-
-@app.route("/")
 def home():
 
-    return render_template(
-        "index.html"
+    os.makedirs(
+        UPLOAD_FOLDER,
+        exist_ok=True
     )
 
 
-# =========================================================
-# Upload Document
-# =========================================================
+    documents = []
+
+
+    for filename in os.listdir(
+        UPLOAD_FOLDER
+    ):
+
+        extension = os.path.splitext(
+            filename
+        )[1].lower()
+
+        if extension in ALLOWED_EXTENSIONS:
+
+            documents.append(
+                filename
+            )
+
+
+    documents.sort()
+
+
+    return render_template(
+        "index.html",
+        documents=documents
+    )
+
+
+# ============================================================
+# UPLOAD
+# ============================================================
 
 @app.route(
     "/upload",
@@ -78,32 +103,26 @@ def upload_document():
 
     try:
 
-        # ---------------------------------------------
-        # Check file
-        # ---------------------------------------------
-
         if "document" not in request.files:
 
-            return render_template(
-                "index.html",
-                error="No document selected."
-            )
+            return jsonify({
+                "success": False,
+                "error": "No document selected."
+            }), 400
 
 
-        file = request.files["document"]
+        file = request.files[
+            "document"
+        ]
 
 
-        if file.filename == "":
+        if not file.filename:
 
-            return render_template(
-                "index.html",
-                error="No document selected."
-            )
+            return jsonify({
+                "success": False,
+                "error": "No document selected."
+            }), 400
 
-
-        # ---------------------------------------------
-        # Secure filename
-        # ---------------------------------------------
 
         filename = secure_filename(
             file.filename
@@ -115,129 +134,78 @@ def upload_document():
         )[1].lower()
 
 
-        # ---------------------------------------------
-        # Validate extension
-        # ---------------------------------------------
-
         if extension not in ALLOWED_EXTENSIONS:
 
-            return render_template(
-                "index.html",
-                error=(
-                    "Only PDF and DOCX files "
-                    "are supported."
-                )
-            )
+            return jsonify({
+                "success": False,
+                "error":
+                    "Only PDF and DOCX files are supported."
+            }), 400
 
 
-        # ---------------------------------------------
-        # Save file
-        # ---------------------------------------------
+        os.makedirs(
+            UPLOAD_FOLDER,
+            exist_ok=True
+        )
+
 
         file_path = os.path.join(
-            app.config["UPLOAD_FOLDER"],
+            UPLOAD_FOLDER,
             filename
         )
 
+
+        # Save document
         file.save(
             file_path
         )
 
 
-        # ---------------------------------------------
-        # Extract text
-        # ---------------------------------------------
-
-        extracted_text = extract_text(
-            file_path,
-            extension
+        print(
+            f"\nUploaded: {filename}"
         )
 
 
-        # ---------------------------------------------
-        # Create chunks
-        # ---------------------------------------------
+        # ----------------------------------------------------
+        # REBUILD VECTOR STORE
+        # ----------------------------------------------------
 
-        chunks = create_chunks(
-            extracted_text
-        )
+        chunks_count = rebuild_vector_store()
 
 
-        if not chunks:
+        return jsonify({
 
-            return render_template(
-                "index.html",
-                error=(
-                    "No readable content was "
-                    "found in the document."
-                )
-            )
+            "success": True,
 
+            "filename": filename,
 
-        # ---------------------------------------------
-        # Create embeddings
-        # ---------------------------------------------
+            "chunks": chunks_count,
 
-        embeddings = create_embeddings(
-            chunks
-        )
-
-
-        # ---------------------------------------------
-        # Create FAISS index
-        # ---------------------------------------------
-
-        index = create_vector_index(
-            embeddings
-        )
-
-
-        # ---------------------------------------------
-        # Save vector store
-        # ---------------------------------------------
-
-        save_vector_store(
-            index,
-            chunks
-        )
-
-
-        # ---------------------------------------------
-        # Show document information
-        # ---------------------------------------------
-
-        return render_template(
-            "index.html",
-
-            success=(
-                "Document uploaded and processed "
-                "successfully."
-            ),
-
-            filename=filename,
-
-            text=extracted_text,
-
-            chunks=chunks
-        )
+            "message":
+                "Document uploaded and processed successfully."
+        })
 
 
     except Exception as e:
 
         print(
-            "Upload Error:",
-            str(e)
-        )
-
-        return render_template(
-            "index.html",
-            error=str(e)
+            "UPLOAD ERROR:",
+            e
         )
 
 
-# =========================================================
-# Ask Question
-# =========================================================
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        }), 500
+
+
+# ============================================================
+# ASK AI
+# ============================================================
 
 @app.route(
     "/ask",
@@ -247,77 +215,150 @@ def ask():
 
     try:
 
-        # ---------------------------------------------
-        # Get question
-        # ---------------------------------------------
+        data = request.get_json(
+            silent=True
+        )
 
-        question = request.form.get(
+
+        if not data:
+
+            return jsonify({
+                "success": False,
+                "error":
+                    "No request data received."
+            }), 400
+
+
+        question = data.get(
             "question",
             ""
         ).strip()
 
 
-        # ---------------------------------------------
-        # Validate question
-        # ---------------------------------------------
-
         if not question:
 
-            return render_template(
-                "index.html",
-                error="Please enter a question."
-            )
+            return jsonify({
+                "success": False,
+                "error":
+                    "Please enter a question."
+            }), 400
 
-
-        # ---------------------------------------------
-        # RAG
-        # ---------------------------------------------
 
         answer = ask_question(
             question
         )
 
 
-        # ---------------------------------------------
-        # Show answer
-        # ---------------------------------------------
+        return jsonify({
 
-        return render_template(
-            "index.html",
+            "success": True,
 
-            question=question,
+            "answer": answer
 
-            answer=answer
-        )
-
-
-    except FileNotFoundError:
-
-        return render_template(
-            "index.html",
-            error=(
-                "Please upload and process a "
-                "document before asking a question."
-            )
-        )
+        })
 
 
     except Exception as e:
 
         print(
-            "Question Error:",
-            str(e)
-        )
-
-        return render_template(
-            "index.html",
-            error=str(e)
+            "ASK ERROR:",
+            e
         )
 
 
-# =========================================================
-# Run Application
-# =========================================================
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        }), 500
+
+
+# ============================================================
+# REMOVE DOCUMENT
+# ============================================================
+
+@app.route(
+    "/remove/<filename>",
+    methods=["DELETE"]
+)
+def remove_document(filename):
+
+    try:
+
+        filename = secure_filename(
+            filename
+        )
+
+
+        file_path = os.path.join(
+            UPLOAD_FOLDER,
+            filename
+        )
+
+
+        if not os.path.exists(
+            file_path
+        ):
+
+            return jsonify({
+
+                "success": False,
+
+                "error":
+                    "Document not found."
+
+            }), 404
+
+
+        # Remove physical document
+        os.remove(
+            file_path
+        )
+
+
+        print(
+            f"\nRemoved: {filename}"
+        )
+
+
+        # Rebuild vector store
+        chunks_count = rebuild_vector_store()
+
+
+        return jsonify({
+
+            "success": True,
+
+            "message":
+                "Document removed successfully.",
+
+            "chunks": chunks_count
+
+        })
+
+
+    except Exception as e:
+
+        print(
+            "REMOVE ERROR:",
+            e
+        )
+
+
+        return jsonify({
+
+            "success": False,
+
+            "error": str(e)
+
+        }), 500
+
+
+# ============================================================
+# RUN
+# ============================================================
 
 if __name__ == "__main__":
 

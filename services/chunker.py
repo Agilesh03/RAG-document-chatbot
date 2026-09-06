@@ -1,6 +1,10 @@
 import re
 
 
+# ============================================================
+# SECTION TITLES
+# ============================================================
+
 SECTION_TITLES = [
     "Personal Background",
     "Childhood and Early Sporting Life",
@@ -28,85 +32,120 @@ SECTION_TITLES = [
 ]
 
 
+# ============================================================
+# PREPARE TEXT
+# ============================================================
+
 def prepare_text(text):
     """
-    Put each known section heading on a new line.
+    Ensure recognized section headings start on a new line.
     """
 
-    for index, title in enumerate(SECTION_TITLES, start=1):
+    for title in SECTION_TITLES:
 
-        pattern = rf"(?<!\d){index}\.\s*{re.escape(title)}"
-
-        replacement = f"\n{index}. {title}"
+        pattern = (
+            rf"(?<!\d)"
+            rf"(\d{{1,2}}\.\s*{re.escape(title)})"
+        )
 
         text = re.sub(
             pattern,
-            replacement,
+            r"\n\1",
             text
         )
 
     return text
 
 
-def split_long_text(text, chunk_size):
+# ============================================================
+# SPLIT LONG SECTION
+# ============================================================
+
+def split_long_section(section, chunk_size=700):
     """
-    Split large sections without cutting words.
+    Split a large section without losing its heading.
     """
 
-    words = text.split()
+    section = section.strip()
+
+    if len(section) <= chunk_size:
+        return [section]
+
+    lines = section.splitlines()
+
+    heading = lines[0].strip()
+
+    body = " ".join(
+        line.strip()
+        for line in lines[1:]
+        if line.strip()
+    )
+
+    words = body.split()
 
     chunks = []
-    current_chunk = ""
+
+    current = heading
 
     for word in words:
 
-        if not current_chunk:
-
-            current_chunk = word
-
-            continue
-
         candidate = (
-            current_chunk
+            current
             + " "
             + word
         )
 
         if len(candidate) <= chunk_size:
 
-            current_chunk = candidate
+            current = candidate
 
         else:
 
-            chunks.append(
-                current_chunk.strip()
+            if current.strip():
+                chunks.append(
+                    current.strip()
+                )
+
+            current = (
+                heading
+                + " "
+                + word
             )
 
-            current_chunk = word
-
-    if current_chunk:
-
+    if current.strip():
         chunks.append(
-            current_chunk.strip()
+            current.strip()
         )
 
     return chunks
 
 
+# ============================================================
+# CREATE CHUNKS
+# ============================================================
+
 def create_chunks(text, chunk_size=700):
     """
-    Create chunks using the document's known
-    section structure.
+    Create meaningful chunks using recognized
+    document headings.
     """
 
     text = prepare_text(text)
 
-    heading_pattern = (
-        r"(?m)(?=^\d{1,2}\.\s+)"
+    title_pattern = "|".join(
+        re.escape(title)
+        for title in SECTION_TITLES
+    )
+
+    section_pattern = (
+        r"(?<!\d)"
+        r"(?=\d{1,2}\.\s*(?:"
+        + title_pattern
+        + r"))"
     )
 
     sections = re.split(
-        heading_pattern,
+        section_pattern,
         text
     )
 
@@ -119,17 +158,13 @@ def create_chunks(text, chunk_size=700):
         if not section:
             continue
 
-        if len(section) <= chunk_size:
+        section_chunks = split_long_section(
+            section,
+            chunk_size
+        )
 
-            chunks.append(section)
-
-        else:
-
-            chunks.extend(
-                split_long_text(
-                    section,
-                    chunk_size
-                )
-            )
+        chunks.extend(
+            section_chunks
+        )
 
     return chunks

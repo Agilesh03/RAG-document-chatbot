@@ -1,56 +1,235 @@
-from document_loader import extract_text
-from chunker import create_chunks
-from embedding import create_embeddings
-from vector_store import create_vector_index, save_vector_store
+import os
 
-
-DOCUMENT_PATH = "../documents/MS_Dhoni_History_and_Career.docx"
-
-
-# Step 1: Extract text
-text = extract_text(
-    DOCUMENT_PATH,
-    ".docx"
-)
-
-print("Text extracted successfully.")
-print("Total characters:", len(text))
-
-
-# Step 2: Create chunks
-chunks = create_chunks(text)
-
-print("\nTotal chunks:", len(chunks))
-
-
-# Step 3: Create embeddings
-embeddings = create_embeddings(chunks)
-
-print("\nEmbeddings created successfully.")
-print("Embedding shape:", embeddings.shape)
-
-index = create_vector_index(
-    embeddings
-)
-
-save_vector_store(
-    index,
-    chunks
+from services.document_loader import extract_text
+from services.chunker import create_chunks
+from services.embedding import create_embeddings
+from services.vector_store import (
+    create_vector_index,
+    save_vector_store
 )
 
 
-# Step 4: Display information about each chunk
-print("\n========== CHUNK + EMBEDDING INFO ==========\n")
+# ============================================================
+# PATHS
+# ============================================================
 
-for index, chunk in enumerate(chunks):
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
 
-    print(f"Chunk {index + 1}")
-    print("----------------------------------------")
-    print(chunk[:200])
+
+DOCUMENTS_DIR = os.path.join(
+    BASE_DIR,
+    "documents"
+)
+
+
+# ============================================================
+# REBUILD VECTOR STORE
+# ============================================================
+
+def rebuild_vector_store():
+
+    print(
+        "\n========================================"
+    )
+
+    print(
+        "REBUILDING VECTOR STORE"
+    )
+
+    print(
+        "========================================"
+    )
+
+
+    os.makedirs(
+        DOCUMENTS_DIR,
+        exist_ok=True
+    )
+
+
+    all_chunks = []
+
+
+    # --------------------------------------------------------
+    # Find documents
+    # --------------------------------------------------------
+
+    files = []
+
+    for filename in os.listdir(
+        DOCUMENTS_DIR
+    ):
+
+        extension = os.path.splitext(
+            filename
+        )[1].lower()
+
+        if extension in {
+            ".pdf",
+            ".docx"
+        }:
+
+            files.append(
+                filename
+            )
+
+
+    if not files:
+
+        print(
+            "No documents found."
+        )
+
+        return 0
+
+
+    # --------------------------------------------------------
+    # Process every document
+    # --------------------------------------------------------
+
+    for filename in files:
+
+        file_path = os.path.join(
+            DOCUMENTS_DIR,
+            filename
+        )
+
+        extension = os.path.splitext(
+            filename
+        )[1].lower()
+
+
+        print(
+            f"\nProcessing: {filename}"
+        )
+
+
+        # Extract
+        text = extract_text(
+            file_path,
+            extension
+        )
+
+
+        if not text.strip():
+
+            print(
+                "No text found. Skipping."
+            )
+
+            continue
+
+
+        # Chunk
+        chunks = create_chunks(
+            text
+        )
+
+
+        print(
+            f"Chunks created: {len(chunks)}"
+        )
+
+
+        # Add filename to metadata
+        for chunk in chunks:
+
+            all_chunks.append({
+                "filename": filename,
+                "chunk": chunk
+            })
+
+
+    # --------------------------------------------------------
+    # Check chunks
+    # --------------------------------------------------------
+
+    if not all_chunks:
+
+        print(
+            "No chunks available."
+        )
+
+        return 0
+
+
+    # --------------------------------------------------------
+    # Create embeddings
+    # --------------------------------------------------------
+
+    print(
+        "\nCreating embeddings..."
+    )
+
+
+    texts = [
+        item["chunk"]
+        for item in all_chunks
+    ]
+
+
+    embeddings = create_embeddings(
+        texts
+    )
+
 
     print(
         "Embedding dimensions:",
-        len(embeddings[index])
+        embeddings.shape[1]
     )
 
-    print()
+
+    # --------------------------------------------------------
+    # Create FAISS
+    # --------------------------------------------------------
+
+    index = create_vector_index(
+        embeddings
+    )
+
+
+    # --------------------------------------------------------
+    # Save
+    # --------------------------------------------------------
+
+    save_vector_store(
+        index,
+        all_chunks
+    )
+
+
+    print(
+        "\n========================================"
+    )
+
+    print(
+        "VECTOR STORE READY"
+    )
+
+    print(
+        f"Documents: {len(files)}"
+    )
+
+    print(
+        f"Chunks: {len(all_chunks)}"
+    )
+
+    print(
+        "========================================"
+    )
+
+
+    return len(all_chunks)
+
+
+# ============================================================
+# DIRECT EXECUTION
+# ============================================================
+
+if __name__ == "__main__":
+
+    rebuild_vector_store()

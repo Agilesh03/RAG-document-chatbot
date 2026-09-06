@@ -4,7 +4,10 @@ import pickle
 import os
 
 
-# Get the project root directory
+# ============================================================
+# BASE PATH
+# ============================================================
+
 BASE_DIR = os.path.dirname(
     os.path.dirname(
         os.path.abspath(__file__)
@@ -30,6 +33,10 @@ METADATA_PATH = os.path.join(
 )
 
 
+# ============================================================
+# CREATE VECTOR INDEX
+# ============================================================
+
 def create_vector_index(embeddings):
     """
     Create a FAISS index from embedding vectors.
@@ -40,20 +47,34 @@ def create_vector_index(embeddings):
         dtype="float32"
     )
 
+    if embeddings.size == 0:
+        raise ValueError(
+            "No embeddings were provided."
+        )
+
     dimension = embeddings.shape[1]
 
     index = faiss.IndexFlatL2(
         dimension
     )
 
-    index.add(embeddings)
+    index.add(
+        embeddings
+    )
 
     return index
 
 
-def save_vector_store(index, chunks):
+# ============================================================
+# SAVE VECTOR STORE
+# ============================================================
+
+def save_vector_store(
+    index,
+    chunks
+):
     """
-    Save FAISS index and document chunks.
+    Save FAISS index and metadata.
     """
 
     os.makedirs(
@@ -76,35 +97,21 @@ def save_vector_store(index, chunks):
             file
         )
 
-    print(
-        "Vector store saved successfully."
-    )
 
-    print(
-        "Index:",
-        INDEX_PATH
-    )
-
-    print(
-        "Metadata:",
-        METADATA_PATH
-    )
-
+# ============================================================
+# LOAD VECTOR STORE
+# ============================================================
 
 def load_vector_store():
     """
-    Load the saved FAISS index and document chunks.
+    Load FAISS index and metadata.
     """
 
     if not os.path.exists(INDEX_PATH):
-        raise FileNotFoundError(
-            "FAISS index not found."
-        )
+        return None, []
 
     if not os.path.exists(METADATA_PATH):
-        raise FileNotFoundError(
-            "Metadata file not found."
-        )
+        return None, []
 
     index = faiss.read_index(
         INDEX_PATH

@@ -6,7 +6,7 @@ MODEL_NAME = "llama3.2"
 
 def generate_answer(question, context):
     """
-    Generate an answer using the retrieved document context.
+    Generate an answer using only the retrieved context.
     """
 
     prompt = f"""
@@ -41,4 +41,8 @@ Answer:
         ]
     )
 
-    return response["message"]["content"]
+    return response[
+        "message"
+    ][
+        "content"
+    ]

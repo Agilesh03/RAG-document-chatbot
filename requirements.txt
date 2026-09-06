@@ -1,4 +1,8 @@
 Flask
-python-dotenv
-PyMuPDF
+Werkzeug
+pypdf
 python-docx
+sentence-transformers
+numpy
+faiss-cpu
+ollama

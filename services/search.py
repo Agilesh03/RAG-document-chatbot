@@ -1,18 +1,82 @@
+import os
+import faiss
+import pickle
 import numpy as np
 
 from services.embedding import create_embeddings
-from services.vector_store import load_vector_store
 
 
-def search(query, top_k=3):
+# ============================================================
+# PATHS
+# ============================================================
+
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
+
+INDEX_PATH = os.path.join(
+    BASE_DIR,
+    "vector_store",
+    "index.faiss"
+)
+
+
+METADATA_PATH = os.path.join(
+    BASE_DIR,
+    "vector_store",
+    "metadata.pkl"
+)
+
+
+# ============================================================
+# LOAD VECTOR STORE
+# ============================================================
+
+def load_vector_store():
+
+    if not os.path.exists(INDEX_PATH):
+        return None, []
+
+    if not os.path.exists(METADATA_PATH):
+        return None, []
+
+    index = faiss.read_index(
+        INDEX_PATH
+    )
+
+    with open(
+        METADATA_PATH,
+        "rb"
+    ) as file:
+
+        chunks = pickle.load(file)
+
+    return index, chunks
+
+
+# ============================================================
+# SEARCH
+# ============================================================
+
+def search(
+    query,
+    top_k=3
+):
     """
-    Search the vector store for the
-    most relevant document chunks.
+    Search for the most relevant chunks.
     """
 
     index, chunks = load_vector_store()
 
-    # Convert the user's question into an embedding
+    if index is None:
+        return []
+
+    if not chunks:
+        return []
+
     query_embedding = create_embeddings(
         [query]
     )
@@ -22,10 +86,14 @@ def search(query, top_k=3):
         dtype="float32"
     )
 
-    # Search FAISS
+    actual_top_k = min(
+        top_k,
+        index.ntotal
+    )
+
     distances, indices = index.search(
         query_embedding,
-        top_k
+        actual_top_k
     )
 
     results = []
@@ -35,16 +103,52 @@ def search(query, top_k=3):
         indices[0]
     ):
 
-        if index_number == -1:
+        if index_number < 0:
             continue
 
-        results.append({
-            "chunk": chunks[index_number],
-            "distance": float(distance)
-        })
+        if index_number >= len(chunks):
+            continue
+
+        item = chunks[index_number]
+
+        # New metadata format
+        if isinstance(item, dict):
+
+            results.append({
+                "chunk": item.get(
+                    "chunk",
+                    ""
+                ),
+
+                "filename": item.get(
+                    "filename",
+                    "Unknown document"
+                ),
+
+                "distance": float(
+                    distance
+                )
+            })
+
+        # Backward compatibility
+        else:
+
+            results.append({
+                "chunk": str(item),
+
+                "filename": "Document",
+
+                "distance": float(
+                    distance
+                )
+            })
 
     return results
 
+
+# ============================================================
+# TEST SEARCH
+# ============================================================
 
 if __name__ == "__main__":
 
@@ -68,6 +172,11 @@ if __name__ == "__main__":
 
         print(
             f"Result {number}"
+        )
+
+        print(
+            "Document:",
+            result["filename"]
         )
 
         print(
